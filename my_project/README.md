@@ -21,4 +21,16 @@
 
 Ниже представлен скриншот вывода первых строк загруженных данных.
 
-![Результат работы скрипта](Screen_1.jpg)(Screen_2.jpg)(Screen_1.jpg)
+![Результат работы скрипта](Screen_1.jpg)
+
+## Обновление кода (домашняя работа 3)
+
+1. Скачивает Excel-файлы (если они ещё не скачаны).
+
+2. Читает их (поддержка .xls/.xlsx/.csv). Для каждой колонки пытается привести тип: numeric → int/float, datetime, boolean, category (по эвристике).
+
+3. Сохраняет преобразованный DataFrame в processed/<имя>.csv и — если установлен pyarrow/fastparquet — в processed/<имя>.parquet.
+
+4. Пишет JSON-отчёт с описанием, какие преобразования применены (processed/<имя>_schema.json) и общую сводку processed/summary_files.json.
+
+5. Печатает head(10) каждого DataFrame
