@@ -17,11 +17,7 @@
    ```
 2. Установить зависимости (если ещё не установлены):
    ```bash
-   pip install pandas requests lxml html5lib
-   ```
-   или с poetry:
-   ```bash
-   poetry add pandas requests lxml html5lib
+   pip install requests pandas beautifulsoup4 lxml
    ```
 3. Запустить парсер:
    ```bash
