@@ -1,28 +1,32 @@
-# Папки с данными
-# Игнорируем все, что лежит в data/
-my_project/data/
-my_project/creds.db
+# 1. Секреты
+# Игнорируем creds.db, где бы он ни лежал
+**/creds.db
+*.db
 
-# Файлы Python
-# Игнорируем папки с кешем, которые Python создает при запуске
+# 2. Папки с данными
+# Игнорируем data/ и my_project/data/
+/data/
+/my_project/data/
+
+# 3. Данные в других местах (из вашего tree)
+# Игнорируем .xls, .parquet, .csv ВЕЗДЕ
+*.xls
+*.csv
+*.parquet
+
+# 4. Файлы Python
 __pycache__/
 *.pyc
 
-# Файлы окружения Poetry/Conda
-# Poetry часто создает локальную виртуальную среду .venv
+# 5. Окружение
 .venv/
-# Файлы окружения Conda (на всякий случай)
 /env/
 /venv/
 
-# Файлы редактора кода (VS Code)
-# Хранит настройки вашей рабочей области, не нужны в репозитории
-.vscode/
-
-# Файлы Jupyter Notebook
-# Промежуточные сохранения (чекпоинты), которые создает Jupyter
+# 6. Редакторы и Jupyter
+/.vscode/
 .ipynb_checkpoints/
 
-# Системные файлы (для Mac и Windows)
+# 7. Системные файлы
 .DS_Store
 Thumbs.db
