@@ -1,219 +1,83 @@
 #!/usr/bin/env python3
 # data_loader.py
 """
-Скачивает Excel-файлы с Google Drive, читает их в pandas DataFrame,
-попыточно приводит колонки к подходящим типам (numeric, datetime, bool, category)
-и сохраняет результаты в CSV и (если доступно) Parquet.
+Скачивает .xls файлы с Google Drive, приводит типы данных
+и сохраняет результат в .csv и .parquet.
 """
-
-import os
-import json
 import pandas as pd
 import gdown
-from typing import Tuple, Dict, Any
+import os
 
-def download_file_from_gdrive(file_id: str, output_path: str, overwrite: bool = False) -> bool:
+def download_and_load_data(file_id: str, output_path: str) -> pd.DataFrame:
     """
-    Скачивает файл с Google Drive по file_id в output_path.
-    Если файл уже существует и overwrite=False — пропускает скачивание.
-    Возвращает True при успехе (файл существует на диске).
+    Скачивает .xls файл с Google Drive (если его еще нет)
+    и читает его в pandas DataFrame.
     """
-    if os.path.exists(output_path) and not overwrite:
-        print(f"Файл '{output_path}' уже существует — пропускаем скачивание.")
-        return True
-
-    url = f"https://drive.google.com/uc?id={file_id}"
-    print(f"Скачивание: {url} -> {output_path}")
-    try:
-        gdown.download(url, output_path, quiet=False)
-    except Exception as e:
-        print(f"[ERROR] gdown.download: {e}")
-        return False
-
+    # Формируем URL для скачивания
+    url = f'https://drive.google.com/uc?id={file_id}'
+    
+    # Скачиваем файл, только если он отсутствует
     if not os.path.exists(output_path):
-        print(f"[ERROR] Файл не найден после попытки скачивания: {output_path}")
-        return False
-
-    return True
-
-def try_parse_bool_series(s: pd.Series) -> Tuple[pd.Series, bool]:
-    """
-    Попытка интерпретировать серию как булевую.
-    Поддерживает значения: true/false, yes/no, y/n, 0/1 (строки/числа).
-    Возвращает (преобразованная_серия, True) если получилось, иначе (исходная, False).
-    """
-    if s.dropna().empty:
-        return s, False
-
-    mapping = {
-        'true': True, 'false': False,
-        't': True, 'f': False,
-        'yes': True, 'no': False,
-        'y': True, 'n': False,
-        '1': True, '0': False
-    }
-
-    # Normalize to lowercase string
-    def map_val(v):
-        if pd.isna(v):
-            return None
-        if isinstance(v, bool):
-            return v
-        vs = str(v).strip().lower()
-        if vs in mapping:
-            return mapping[vs]
-        return mapping.get(vs) if vs in mapping else None
-
-    mapped = s.map(map_val)
-    non_null = mapped.notna().sum()
-    frac = non_null / max(1, len(s))
-    # Если >= 80% значений удалось преобразовать -> считаем колонку булевой
-    if frac >= 0.8:
-        return mapped.astype('boolean'), True
-    return s, False
-
-def infer_and_cast_types(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, Any]]:
-    """
-    Для каждой колонки пытаемся:
-    1) привести к числовому (float/int), если parseable >= 80%
-    2) иначе попробовать parse datetime (>= 60%)
-    3) иначе попробовать булев (>= 80%)
-    4) иначе привести к category, если уникальных значений мало
-    Возвращает (новый DataFrame, отчет словарь по колонкам)
-    """
-    report = {}
-    df = df.copy()
-    n_rows = len(df)
-    for col in df.columns:
-        ser = df[col]
-        orig_dtype = str(ser.dtype)
-        col_report = {"original_dtype": orig_dtype}
-        # Skip if empty
-        if ser.dropna().empty:
-            col_report.update({"action": "empty_column", "new_dtype": orig_dtype})
-            report[col] = col_report
-            continue
-
-        # 1) Попробовать числовой
-        coerced_num = pd.to_numeric(ser, errors='coerce')
-        num_non_null = coerced_num.notna().sum()
-        if num_non_null / n_rows >= 0.8:
-            # если все целые — привести к Int64, иначе float
-            if (coerced_num.dropna() % 1 == 0).all():
-                new_ser = coerced_num.astype('Int64')  # nullable integer
-                new_type = 'Int64'
-            else:
-                new_ser = coerced_num.astype('float64')
-                new_type = 'float64'
-            df[col] = new_ser
-            col_report.update({"action": "to_numeric", "new_dtype": new_type,
-                               "numeric_fraction": round(num_non_null / n_rows, 3)})
-            report[col] = col_report
-            continue
-
-        # 2) Попробовать datetime
-        coerced_dt = pd.to_datetime(ser, errors='coerce', infer_datetime_format=True)
-        dt_non_null = coerced_dt.notna().sum()
-        if dt_non_null / n_rows >= 0.6:
-            df[col] = coerced_dt
-            col_report.update({"action": "to_datetime", "new_dtype": "datetime64[ns]",
-                               "datetime_fraction": round(dt_non_null / n_rows, 3)})
-            report[col] = col_report
-            continue
-
-        # 3) Попробовать boolean
-        bool_ser, ok_bool = try_parse_bool_series(ser)
-        if ok_bool:
-            df[col] = bool_ser
-            col_report.update({"action": "to_boolean", "new_dtype": "boolean"})
-            report[col] = col_report
-            continue
-
-        # 4) Попробовать category если мало уникальных значений
-        nunique = ser.nunique(dropna=True)
-        if nunique <= max(50, 0.05 * n_rows):
-            df[col] = ser.astype('category')
-            col_report.update({"action": "to_category", "new_dtype": "category",
-                               "nunique": int(nunique)})
-            report[col] = col_report
-            continue
-
-        # ничего не сделали
-        col_report.update({"action": "leave", "new_dtype": orig_dtype, "nunique": int(nunique)})
-        report[col] = col_report
-
-    return df, report
-
-def read_table(path: str) -> pd.DataFrame:
-    """
-    Читает файл .csv/.xls/.xlsx по расширению. Для .xls/.xlsx использует соответствующие движки.
-    """
-    ext = os.path.splitext(path)[1].lower()
+        print(f"Скачивание файла: {output_path}...")
+        gdown.download(url, output_path, quiet=False)
+    else:
+        print(f"Файл '{output_path}' уже существует, пропускаем скачивание.")
+    
+    # Читаем .xls файл
     try:
-        if ext == ".csv":
-            return pd.read_csv(path)
-        elif ext in (".xls", ".xlsx"):
-            engine = "xlrd" if ext == ".xls" else "openpyxl"
-            return pd.read_excel(path, engine=engine)
-        else:
-            # Попробуем по очереди csv, затем excel
-            try:
-                return pd.read_csv(path)
-            except Exception:
-                return pd.read_excel(path)
+        # Указываем 'xlrd', так как это старый формат .xls
+        df = pd.read_excel(output_path, engine="xlrd")
+        return df
     except Exception as e:
-        print(f"[ERROR] Не удалось прочитать {path}: {e}")
-        raise
-
-def save_with_formats(df: pd.DataFrame, out_base: str, save_csv: bool = True, save_parquet: bool = True) -> Dict[str, str]:
-    """
-    Сохраняет DataFrame в CSV и по возможности в Parquet.
-    Возвращает словарь с путями сохранённых файлов (если сохранены).
-    """
-    saved = {}
-    if save_csv:
-        out_csv = out_base + ".csv"
-        try:
-            # Сохраняем CSV без индекса
-            df.to_csv(out_csv, index=False)
-            saved['csv'] = out_csv
-            print(f"[INFO] Сохранён CSV: {out_csv}")
-        except Exception as e:
-            print(f"[WARN] Не удалось сохранить CSV {out_csv}: {e}")
-
-    if save_parquet:
-        out_parquet = out_base + ".parquet"
-        try:
-            # Попытка сохранить parquet (pyarrow/fastparquet должны быть установлены)
-            df.to_parquet(out_parquet, index=False)
-            saved['parquet'] = out_parquet
-            print(f"[INFO] Сохранён Parquet: {out_parquet}")
-        except Exception as e:
-            print(f"[WARN] Не удалось сохранить Parquet ({out_parquet}): {e}")
-            print("       Установите 'pyarrow' или 'fastparquet' если хотите сохранить в Parquet.")
-    return saved
-
-def save_schema_report(report: Dict[str, Any], out_base: str) -> str:
-    """
-    Сохраняет JSON с отчетом по преобразованиям типов.
-    """
-    out_json = out_base + "_schema.json"
-    try:
-        with open(out_json, "w", encoding="utf-8") as fh:
-            json.dump(report, fh, indent=2, ensure_ascii=False)
-        print(f"[INFO] Сохранён отчет по типам: {out_json}")
-    except Exception as e:
-        print(f"[WARN] Не удалось сохранить schema report: {e}")
-        out_json = ""
-    return out_json
-
-def download_and_load_data(file_id: str, output_path: str, overwrite: bool = False) -> pd.DataFrame:
-    if not download_file_from_gdrive(file_id, output_path, overwrite=overwrite):
+        print(f"Ошибка при чтении файла {output_path}: {e}")
         return None
-    return read_table(output_path)
+
+def transform_data(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Приводит типы данных в DataFrame, используя
+    встроенную функцию pandas.
+    """
+    print("Приведение типов...")
+    original_types = df.dtypes
+    
+    # .convert_dtypes() - это умная функция, которая сама
+    # пытается подобрать лучший тип (string, Int64, boolean, float и т.д.)
+    df_transformed = df.convert_dtypes()
+    
+    # Выведем отчет, что изменилось
+    for col in df.columns:
+        if original_types[col] != df_transformed.dtypes[col]:
+            print(f"  - Колонка '{col}': {original_types[col]} -> {df_transformed.dtypes[col]}")
+            
+    return df_transformed
+
+def save_data(df: pd.DataFrame, base_path: str):
+    """
+    Сохраняет DataFrame в форматы .csv и .parquet.
+    base_path - это путь *без* расширения,
+    например 'processed_data/my_file'
+    """
+    
+    #  Сохраняем в CSV
+    csv_path = base_path + ".csv"
+    try:
+        df.to_csv(csv_path, index=False)
+        print(f"Успешно сохранен: {csv_path}")
+    except Exception as e:
+        print(f"Ошибка сохранения {csv_path}: {e}")
+
+    # Сохраняем в Parquet (требуется 'pyarrow' или 'fastparquet')
+    parquet_path = base_path + ".parquet"
+    try:
+        df.to_parquet(parquet_path, index=False)
+        print(f"Успешно сохранен: {parquet_path}")
+    except Exception as e:
+        print(f"Ошибка сохранения {parquet_path}: {e}")
+        print(" (Для сохранения в Parquet убедитесь, что установлен 'pyarrow')")
+
 
 if __name__ == "__main__":
-    # Вставьте ваши ID как в предыдущей версии
+    # ID ваших файлов
     FILE_IDS = {
         "ASVs_ITS2_sequences.xls": "1Ej41HIklJDCaaaJd6oGMrMiDwa9bgBED",
         "DADA2_clean_ASV_counts_ITS2_DPS.xls": "17CI7XNtneBPPJ3gHu3cPBw4pVitqTQuo",
@@ -224,48 +88,47 @@ if __name__ == "__main__":
         "Metadata_Roots_ITS2.xls": "1m0ahdB3KhJKneJ36dKwr474jEZjinH0q"
     }
 
-    out_dir = "processed"
-    os.makedirs(out_dir, exist_ok=True)
+    # Папки для сырых и обработанных данных
+    RAW_DIR = "data/raw"
+    PROCESSED_DIR = "data/processed"
 
+    # Создаем папки, если их нет
+    os.makedirs(RAW_DIR, exist_ok=True)
+    os.makedirs(PROCESSED_DIR, exist_ok=True)
+
+    # Словарь для хранения обработанных данных
     all_data = {}
+
     for filename, file_id in FILE_IDS.items():
-        print(f"\n=== Обработка файла: {filename} ===")
-        # скачиваем в рабочую папку (оригинальное имя)
-        if not download_file_from_gdrive(file_id, filename, overwrite=False):
-            print(f"[ERROR] Пропускаем файл {filename}")
+        print(f"\n--- Обработка файла: {filename} ---")
+        
+        # Extract
+        # Путь для скачивания сырого файла
+        raw_file_path = os.path.join(RAW_DIR, filename)
+        raw_df = download_and_load_data(file_id, raw_file_path)
+        
+        if raw_df is None:
+            print(f"Ошибка загрузки {filename}, пропускаем.")
             continue
+            
+        print(f"Загружено {len(raw_df)} строк.")
+        print("Первые 5 строк (до обработки):")
+        print(raw_df.head(5))
 
-        try:
-            raw_df = read_table(filename)
-        except Exception as e:
-            print(f"[ERROR] Чтение файла {filename} не удалось: {e}")
-            continue
+        # Transform
+        transformed_df = transform_data(raw_df)
 
-        print(f"[INFO] Прочитано {len(raw_df)} строк, {len(raw_df.columns)} колонок.")
-        # Приведение типов
-        casted_df, report = infer_and_cast_types(raw_df)
-        # Сохранение отчёта по типам
-        base = os.path.join(out_dir, os.path.splitext(filename)[0])
-        save_schema_report(report, base)
-        # Сохранение датасета
-        saved = save_with_formats(casted_df, base, save_csv=True, save_parquet=True)
+        # Load
+        # Убираем расширение .xls из имени файла
+        base_name = os.path.splitext(filename)[0]
+        # Путь для сохранения обработанного файла
+        processed_base_path = os.path.join(PROCESSED_DIR, base_name)
+        
+        save_data(transformed_df, processed_base_path)
+        
+        print("Первые 5 строк (после обработки):")
+        print(transformed_df.head(5))
+        
+        all_data[filename] = transformed_df
 
-        # Показываем первые 10 строк преобразованного датафрейма
-        print(casted_df.head(10))
-        all_data[filename] = {
-            "df": casted_df,
-            "report": report,
-            "saved": saved
-        }
-
-    # Опционально: сохранить сводку всех файлов
-    summary_path = os.path.join(out_dir, "summary_files.json")
-    try:
-        summary = {fn: {"saved": all_data[fn]["saved"], "n_rows": len(all_data[fn]["df"]),
-                        "n_cols": len(all_data[fn]["df"].columns)} for fn in all_data}
-        with open(summary_path, "w", encoding="utf-8") as fh:
-            json.dump(summary, fh, indent=2, ensure_ascii=False)
-        print(f"\n[INFO] Сводка сохранена: {summary_path}")
-    except Exception as e:
-        print(f"[WARN] Не удалось сохранить сводку: {e}")
-
+    print("\n--- Все файлы успешно обработаны ---")
