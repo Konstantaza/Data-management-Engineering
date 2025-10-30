@@ -18,9 +18,9 @@ def main(step_to_run):
     Главная функция, запускающая ETL-процесс по шагам.
     """
     print(f"--- Запуск ETL процесса (ШАГ: {step_to_run}) ---")
-    
+
     # Извлечение
-    if step_to_run in ['extract', 'all']:
+    if step_to_run in ["extract", "all"]:
         # Передаем ROOT_DIR в функцию
         raw_paths = extract.extract_all_data(ROOT_DIR)
         if not raw_paths:
@@ -28,7 +28,7 @@ def main(step_to_run):
             return
 
     # Трансформация
-    if step_to_run in ['transform', 'all']:
+    if step_to_run in ["transform", "all"]:
         # Передаем ROOT_DIR в функцию
         transformed_data = transform.transform_all_data(ROOT_DIR)
         if not transformed_data:
@@ -36,8 +36,8 @@ def main(step_to_run):
             return
 
     # Загрузка
-    if step_to_run in ['load', 'all']:
-        if step_to_run == 'load':
+    if step_to_run in ["load", "all"]:
+        if step_to_run == "load":
             print("Шаг 'load' требует данных от 'transform'. Запускаем 'transform'...")
             # Передаем ROOT_DIR в функцию
             transformed_data = transform.transform_all_data(ROOT_DIR)
@@ -54,16 +54,16 @@ def main(step_to_run):
 if __name__ == "__main__":
     # Создаем парсер аргументов (CLI)
     parser = argparse.ArgumentParser(description="ETL-пайплайн.")
-    
+
     parser.add_argument(
-        '--step', 
-        type=str, 
-        required=True, 
-        choices=['extract', 'transform', 'load', 'all'],
-        help="Шаг ETL, который нужно выполнить: 'extract', 'transform', 'load' или 'all' (все по очереди)."
+        "--step",
+        type=str,
+        required=True,
+        choices=["extract", "transform", "load", "all"],
+        help="Шаг ETL, который нужно выполнить: 'extract', 'transform', 'load' или 'all' (все по очереди).",
     )
-    
+
     args = parser.parse_args()
-    
+
     # Запускаем главную функцию с переданным шагом
     main(args.step)

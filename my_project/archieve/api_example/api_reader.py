@@ -3,9 +3,10 @@ import os
 import requests
 import pandas as pd
 
-api_url = "https://v2.jokeapi.dev/joke/Any?amount=10"   # публичный JSON API
+api_url = "https://v2.jokeapi.dev/joke/Any?amount=10"
 out_dir = "processed"
 out_csv = os.path.join(out_dir, "jokes.csv")
+
 
 def main():
     resp = requests.get(api_url, timeout=10)
@@ -37,10 +38,8 @@ def main():
     df = pd.DataFrame(rows)
     print(df.head(10).to_string(index=False))
 
-
     os.makedirs(out_dir, exist_ok=True)
     df.to_csv(out_csv, index=False)
-    print("----------------------------")
     print("Saved .csv to", out_csv)
 
 
