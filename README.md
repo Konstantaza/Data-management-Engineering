@@ -16,11 +16,37 @@
 
 ### Структура пакета `etl/`
 
-* `etl/__init__.py`: Обозначает `etl` как Python-пакет.
-* `etl/extract.py`: **(Extract)** Отвечает за извлечение данных. Скачивает `.xls` файлы из Google Drive, проводит валидацию (проверяет, что файл не пуст), конвертирует их в `.csv` и сохраняет в `my_project/data/raw`.
-* `etl/transform.py`: **(Transform)** Отвечает за трансформацию. Читает `.csv` из `my_project/data/raw`, приводит типы данных (`convert_dtypes`), "плавит" (melt) таблицы с подсчетами в длинный формат.
-* `etl/load.py`: **(Load)** Отвечает за загрузку. Читает креды из SQLite (`my_project/creds.db`) для подключения к Postgres. Проводит валидацию (проверяет, что DataFrame после трансформации не пуст). Сохраняет полные данные в `my_project/data/processed` в формате `.parquet`. Загружает 100 строк в таблицу Postgres.
-* `etl/main.py`: **(Точка входа)** Собирает все модули вместе. Предоставляет CLI-интерфейс (`--step`) для пошагового запуска пайплайна.
+```
+Data-management-Engineering/
+│
+├── etl/
+│   ├── __init__.py
+│   ├── extract.py     # Extract from GDrive
+│   ├── load.py        # Load to DB
+│   ├── main.py        # The main executable file
+│   └── transform.py   # Type conversion
+│
+├── my_project/        # Working directory
+│   ├── data          
+│   │   ├── processed
+│   │   └── raw
+│   ├── notebooks
+│   │    └── EDA.ipynb    
+│   ├── poetry.lock
+│   ├── pyproject.toml
+│   │
+│   └── archieve
+│       ├── api_example
+│       │   ├── api_reader.py
+│       │   └── processed
+│       │       └── jokes.csv
+│       └── parse_example
+│           ├── data_parser.py
+│           └── processed
+│               └── population.csv
+├── .gitignore
+└── README.md
+```
 
 ### Инструкция по запуску
 
@@ -37,3 +63,10 @@ cd my_project
 
 # Запустите ETL-пайплайн (все шаги)
 poetry run python ../etl/main.py --step all
+```
+
+### Дополнительные примеры
+В папке `my_project/archive` находятся дополнительные скрипты, демонстрирующие:
+1. `api_example`: Пример работы с API (получение данных о шутках).
+2. `parse_example`: Пример парсинга HTML-таблиц с веб-страниц.
+
