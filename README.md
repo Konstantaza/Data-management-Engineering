@@ -95,3 +95,7 @@ poetry run python ../etl/main.py --step all
 1. `api_example`: Пример работы с API (получение данных о шутках).
 2. `parse_example`: Пример парсинга HTML-таблиц с веб-страниц.
 
+> **CookieCutter**
+>
+> ### [https://github.com/Konstantaza/DME-Cookiecutter](https://github.com/Konstantaza/DME-Cookiecutter)
+>
