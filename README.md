@@ -38,22 +38,22 @@ Data-management-Engineering/
 │   └── transform.py   # Type conversion
 │
 ├── my_project/        # Working directory
-│   ├── data          
+│   ├── data/          
 │   │   ├── processed
 │   │   └── raw
-│   ├── notebooks
+│   ├── notebooks/
 │   │    └── EDA.ipynb    
 │   ├── poetry.lock
 │   ├── pyproject.toml
 │   │
-│   └── archieve
-│       ├── api_example
+│   └── archieve/
+│       ├── api_example/
 │       │   ├── api_reader.py
-│       │   └── processed
+│       │   └── processed/
 │       │       └── jokes.csv
-│       └── parse_example
+│       └── parse_example/
 │           ├── data_parser.py
-│           └── processed
+│           └── processed/
 │               └── population.csv
 ├── .gitignore
 └── README.md
