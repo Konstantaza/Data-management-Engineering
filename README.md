@@ -70,20 +70,16 @@ Data-management-Engineering/
 git clone git@github.com:Konstantaza/Data-management-Engineering.git
 cd Data-management-Engineering
 
-# 2. Создайте окружение conda 
-conda create -n my_env python=3.13 pip
-
-# 3. Активируйте окружение
-conda activate my_env
-
-# 4. Установите Poetry
+# 2. Установите Poetry
 pip install poetry
 
-# 5. Перейдите в папку проекта и установите все зависимости
+# 3. Создайте удобное вам коружение для работы (conda, docker и тд.)
+
+# 4. Перейдите в папку проекта и установите все зависимости
 cd my_project
 poetry install --no-root
 
-# 6. Запустите пайплайн
+# 5. Запустите пайплайн
 poetry run python ../etl/main.py --step all
 
 ```
