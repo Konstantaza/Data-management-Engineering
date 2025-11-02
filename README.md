@@ -81,7 +81,7 @@ pip install poetry
 
 # 5. Перейдите в папку проекта и установите все зависимости
 cd my_project
-poetry install
+poetry install --no-root
 
 # 6. Запустите пайплайн
 poetry run python ../etl/main.py --step all
