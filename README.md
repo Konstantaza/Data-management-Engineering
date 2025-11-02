@@ -1,6 +1,11 @@
 # Data-management-Engineering
 
 Этот репозиторий содержит основной ETL-пайплайн для извлечения, трансформации и загрузки данных.
+# Версия CookieCutter
+> **CookieCutter**
+>
+> ### [https://github.com/Konstantaza/DME-Cookiecutter](https://github.com/Konstantaza/DME-Cookiecutter)
+>
 
 ## Набор данных
 
@@ -89,7 +94,3 @@ poetry run python ../etl/main.py --step all
 1. `api_example`: Пример работы с API (получение данных о шутках).
 2. `parse_example`: Пример парсинга HTML-таблиц с веб-страниц.
 
-> **CookieCutter**
->
-> ### [https://github.com/Konstantaza/DME-Cookiecutter](https://github.com/Konstantaza/DME-Cookiecutter)
->
